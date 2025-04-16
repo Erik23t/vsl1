@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Product Video</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Roboto", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            max-width: 500px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .video-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: #000;
+        }
+
+        #video-player {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background-color: #000;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .comments-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .live-comment {
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 20px;
+            padding: 8px 16px;
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            max-width: 90%;
+            animation: fadeInOut 5s forwards;
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            10% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        .comment-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .comment-content {
+            flex: 1;
+        }
+
+        .comment-author {
+            font-weight: bold;
+            font-size: 14px;
+            margin-right: 8px;
+            color: #fff;
+        }
+
+        .comment-text {
+            font-size: 14px;
+            word-break: break-word;
+            color: #fff;
+        }
+
+        .viewers-count {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #ff0000;
+            border-radius: 50%;
+            display: inline-block;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .us-time {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 45%;
+        }
+
+        .us-time-day {
+            font-weight: bold;
+            margin-bottom: 2px;
+            color: #fff;
+        }
+
+        .us-time-date {
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 2px;
+            font-size: 11px;
+        }
+
+        .us-time-clock {
+            color: #ff4b2b;
+            font-weight: bold;
+        }
+
+        .comment-input-container {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .comment-input {
+            width: 100%;
+            display: flex;
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 30px;
+            padding: 5px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 12px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff416c, #ff4b2b);
+            border-radius: 6px;
+            transition: width 0.1s linear;
+        }
+
+        .progress-percentage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+        }
+
+        #comment-text {
+            flex: 1;
+            padding: 10px 15px;
+            border-radius: 30px;
+            border: none;
+            background-color: transparent;
+            color: #fff;
+            font-size: 15px;
+        }
+
+        #comment-text::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        #send-comment {
+            background: linear-gradient(45deg, #ff416c, #ff4b2b);
+            border: none;
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 2px;
+            transition: transform 0.2s;
+        }
+
+        #send-comment:hover {
+            transform: scale(1.05);
+        }
+
+        #play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 0, 0, 0.8);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            pointer-events: auto;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+            }
+            70% {
+                transform: translate(-50%, -50%) scale(1.1);
+                box-shadow: 0 0 0 15px rgba(255, 0, 0, 0);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+            }
+        }
+
+        .product-promo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: 25px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            z-index: 90;
+            animation: pulse 1.5s infinite;
+            display: none;
+            pointer-events: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 90%;
+        }
+
+        .countdown-container {
+            background: linear-gradient(135deg, #1e1e1e, #2d2d2d);
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .countdown-title {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #ff4b2b;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .countdown-timer {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .countdown-box {
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+            padding: 5px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 40px;
+        }
+
+        .countdown-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .countdown-label {
+            font-size: 8px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .countdown-items {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .product-image {
+            width: 200px;
+            height: auto;
+            margin: 10px 0 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .buy-button {
+            background: linear-gradient(45deg, #00c853, #64dd17);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 30px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .buy-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .buy-button:active {
+            transform: translateY(1px);
+        }
+
+        .buy-button::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transform: translateX(-100%);
+        }
+
+        .buy-button:hover::after {
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .close-promo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .close-promo:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="video-container">
+            <video id="video-player" playsinline>
+                <source src="https://stream-vimeo.s3.sa-east-1.amazonaws.com/pobgghnb+-+408x720+1099K.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            
+            <button id="play-button">▶</button>
+            
+            <div class="viewers-count">
+                <span class="live-dot"></span>
+                <span id="viewers-text">125 people watching now</span>
+            </div>
+            
+            <div class="us-time">
+                <div class="us-time-day" id="us-day">Monday</div>
+                <div class="us-time-date" id="us-date">April 11, 2025</div>
+                <div class="us-time-clock" id="us-time">12:00 PM</div>
+            </div>
+            
+            <div class="video-overlay">
+                <div class="comments-overlay" id="comments-overlay">
+                    <!-- Live comments will appear here -->
+                </div>
+                
+                <div class="comment-input-container">
+                    <div class="comment-input">
+                        <input type="text" placeholder="Add a comment..." id="comment-text">
+                        <button id="send-comment">➤</button>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                        <div class="progress-percentage" id="progress-percentage">0%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="product-promo" id="product-promo">
+                <button class="close-promo" id="close-promo">✕</button>
+                
+                <div class="countdown-container">
+                    <div class="countdown-title">Limited Time Offer</div>
+                    <div class="countdown-timer">
+                        <div class="countdown-box">
+                            <span class="countdown-number" id="hours">05</span>
+                            <span class="countdown-label">Hours</span>
+                        </div>
+                        <div class="countdown-box">
+                            <span class="countdown-number" id="minutes">59</span>
+                            <span class="countdown-label">Minutes</span>
+                        </div>
+                        <div class="countdown-box">
+                            <span class="countdown-number" id="seconds">59</span>
+                            <span class="countdown-label">Seconds</span>
+                        </div>
+                    </div>
+                    <div class="countdown-items" id="items-left">145 items remaining</div>
+                </div>
+                
+                <img src="https://cdn.awsli.com.br/600x450/1889/1889425/produto/226916545/mag_treo-u1berm90fy.png" alt="Product" class="product-image">
+                
+                <a href="https://www.mercadolivre.com.br/" target="_blank" style="width: 100%;">
+                    <button class="buy-button">I want more pleasure and power — right now!</button>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const commentsOverlay = document.getElementById("comments-overlay");
+            const commentText = document.getElementById("comment-text");
+            const sendButton = document.getElementById("send-comment");
+            const videoPlayer = document.getElementById("video-player");
+            const playButton = document.getElementById("play-button");
+            const viewersText = document.getElementById("viewers-text");
+            const productPromo = document.getElementById("product-promo");
+            const closePromo = document.getElementById("close-promo");
+            const progressBar = document.getElementById("progress-bar");
+            const progressPercentage = document.getElementById("progress-percentage");
+            const usDay = document.getElementById("us-day");
+            const usDate = document.getElementById("us-date");
+            const usTime = document.getElementById("us-time");
+            const itemsLeft = document.getElementById("items-left");
+            const hoursElement = document.getElementById("hours");
+            const minutesElement = document.getElementById("minutes");
+            const secondsElement = document.getElementById("seconds");
+            
+            // Track video time
+            let videoStartTime = 0;
+            let commentsStarted = false;
+            let promoShown = false;
+            let initialProgressSpeed = true;
+            let itemsRemaining = 145;
+            
+            // Countdown timer variables
+            let countdownHours = 5;
+            let countdownMinutes = 59;
+            let countdownSeconds = 59;
+            let countdownInterval;
+            
+            // Update countdown timer
+            function updateCountdown() {
+                if (countdownSeconds > 0) {
+                    countdownSeconds--;
+                } else {
+                    countdownSeconds = 59;
+                    if (countdownMinutes > 0) {
+                        countdownMinutes--;
+                    } else {
+                        countdownMinutes = 59;
+                        if (countdownHours > 0) {
+                            countdownHours--;
+                        } else {
+                            // Timer reached zero
+                            clearInterval(countdownInterval);
+                        }
+                    }
+                }
+                
+                // Update display
+                hoursElement.textContent = countdownHours.toString().padStart(2, '0');
+                minutesElement.textContent = countdownMinutes.toString().padStart(2, '0');
+                secondsElement.textContent = countdownSeconds.toString().padStart(2, '0');
+            }
+            
+            // Start countdown timer
+            function startCountdown() {
+                // Reset countdown values
+                countdownHours = 5;
+                countdownMinutes = 59;
+                countdownSeconds = 59;
+                
+                // Update display immediately
+                hoursElement.textContent = countdownHours.toString().padStart(2, '0');
+                minutesElement.textContent = countdownMinutes.toString().padStart(2, '0');
+                secondsElement.textContent = countdownSeconds.toString().padStart(2, '0');
+                
+                // Clear any existing interval
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+                
+                // Start new interval
+                countdownInterval = setInterval(updateCountdown, 1000);
+            }
+            
+            // Update US time with full date
+            function updateUSTime() {
+                const options = { 
+                    timeZone: 'America/New_York',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    second: 'numeric',
+                    hour12: true
+                };
+                
+                const dayOptions = {
+                    timeZone: 'America/New_York',
+                    weekday: 'long'
+                };
+                
+                const dateOptions = {
+                    timeZone: 'America/New_York',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                };
+                
+                const now = new Date();
+                const usTimeString = now.toLocaleTimeString('en-US', options);
+                const usDayString = now.toLocaleDateString('en-US', dayOptions);
+                const usDateString = now.toLocaleDateString('en-US', dateOptions);
+                
+                usTime.textContent = usTimeString;
+                usDay.textContent = usDayString;
+                usDate.textContent = usDateString;
+            }
+            
+            // Update US time immediately and then every second
+            updateUSTime();
+            setInterval(updateUSTime, 1000);
+            
+            // International male usernames with country indicators
+            const usernames = [
+                // United States
+                "John_USA", "Mike_NYC", "David_LA", "Robert_Chicago", "James_Texas", 
+                "Thomas_Boston", "Richard_Miami", "Charles_Seattle", "Daniel_Vegas", "Matthew_DC",
+                "Joseph_Atlanta", "Anthony_Dallas", "Mark_Phoenix", "Paul_Denver", "Steven_Portland",
+                
+                // India
+                "Raj_India", "Vikram_Delhi", "Amit_Mumbai", "Suresh_Bangalore", "Rahul_Chennai",
+                "Arjun_Kolkata", "Aditya_Hyderabad", "Sanjay_Pune", "Vijay_Jaipur", "Ravi_Ahmedabad",
+                
+                // France
+                "Pierre_Paris", "Jean_Lyon", "François_Marseille", "Michel_Bordeaux", "Philippe_Lille",
+                "Antoine_Toulouse", "Louis_Nice", "Nicolas_Nantes", "Éric_Strasbourg", "Laurent_Montpellier",
+                
+                // Germany
+                "Hans_Berlin", "Thomas_Munich", "Michael_Hamburg", "Andreas_Cologne", "Stefan_Frankfurt",
+                "Klaus_Stuttgart", "Wolfgang_Düsseldorf", "Jürgen_Leipzig", "Dieter_Dresden", "Martin_Hannover",
+                
+                // United Kingdom
+                "James_London", "William_Manchester", "George_Liverpool", "Harry_Birmingham", "Oliver_Glasgow",
+                "Jack_Leeds", "Thomas_Edinburgh", "Charlie_Bristol", "Jacob_Sheffield", "Alfie_Newcastle",
+                
+                // Spain
+                "Antonio_Madrid", "Manuel_Barcelona", "José_Valencia", "Francisco_Seville", "David_Zaragoza",
+                "Juan_Málaga", "Javier_Murcia", "Carlos_Palma", "Miguel_Bilbao", "Pedro_Alicante"
+            ];
+
+            // Male sexual performance product comments
+            const productComments = [
+                // General positive comments
+                "This product changed my life! My confidence is through the roof now! 💪",
+                "I was skeptical at first, but after 2 weeks I noticed a huge difference!",
+                "My wife can't believe the change in our bedroom activities! Thank you! 🔥",
+                "Best purchase I've made in years. The results speak for themselves.",
+                "I'm 45 and feel like I'm 25 again. This stuff really works!",
+                "After trying many products, this is the only one that delivered real results.",
+                "My performance has improved dramatically. Worth every penny!",
+                "I've been using this for a month now - total game changer in the bedroom! 🙌",
+                "The confidence this has given me is priceless. Highly recommend!",
+                "My stamina has tripled since I started using this product!",
+                
+                // Specific performance comments
+                "My endurance has improved so much my partner is amazed! 😮",
+                "I can last 3x longer than before. This product is the real deal!",
+                "The difference in my performance is night and day. My girlfriend is thrilled!",
+                "I've never had this much energy and stamina before. Incredible product!",
+                "My wife thought I was taking prescription meds, but it's just this amazing product!",
+                "I'm 50+ and performing better than when I was 30. Miracle product!",
+                "The boost in my performance has saved my marriage. Not exaggerating!",
+                "I can go multiple rounds now without getting tired. Game changer!",
+                "My size and hardness have noticeably improved. Very satisfied customer!",
+                "I've regained the confidence I had in my 20s. My partner is very happy!",
+                
+                // Relationship improvement comments
+                "My relationship has completely transformed since I started using this!",
+                "My wife keeps asking what's gotten into me lately. This product is our secret! 😉",
+                "The spark is back in our marriage thanks to this amazing product!",
+                "My girlfriend has noticed a huge difference in our intimacy. She's thrilled!",
+                "After 15 years of marriage, we're having the best time of our lives!",
+                "My partner can't get enough of me now. Thank you for saving our relationship!",
+                "The improvement in our bedroom life has made us closer than ever.",
+                "My wife thought I was seeing someone else because of my sudden improvement! 😂",
+                "We're connecting on a whole new level since I started using this product.",
+                "The smile on my wife's face says it all. Best decision ever!",
+                
+                // Purchase confirmation comments
+                "Just received my second order. This stuff is worth every cent!",
+                "Ordering my third bottle now. Don't want to run out of this miracle!",
+                "Been using for 3 months straight. The results keep getting better!",
+                "Just placed another order. Can't imagine life without this now!",
+                "Bought the 3-month supply. Best investment in myself ever!",
+                "Already on my second bottle and the effects are even stronger!",
+                "Ordered the premium package. The extra strength formula is incredible!",
+                "Just got my monthly subscription. Never going back to life before this!",
+                "Bought one for myself and one for my brother. He'll thank me later!",
+                "Just reordered. The results are too good to stop now!",
+                
+                // Testimonials with timeframes
+                "Been using for 6 weeks now. My performance has improved 200%!",
+                "After just 10 days I noticed a massive difference in my stamina!",
+                "3 weeks in and my confidence in the bedroom is at an all-time high!",
+                "2 months of use and my relationship has completely transformed!",
+                "Used it for 30 days straight - the before and after is unbelievable!",
+                "Week 1: Noticed small changes. Week 4: Complete transformation!",
+                "45 days in and I feel like a completely different man in bed!",
+                "After 2 months, my partner says it's like being with a new man!",
+                "90 days of consistent use and I'm performing better than ever before!",
+                "First week was good, but after a month the results are mind-blowing!",
+                
+                // Age-specific comments
+                "I'm 58 and performing like I did in my 30s! Miracle product!",
+                "At 42, I thought my best days were behind me. This proved me wrong!",
+                "I'm 35 and was having issues already. This fixed everything!",
+                "As a 60-year-old man, I never expected such amazing results!",
+                "I'm in my late 40s and this has completely revitalized my intimate life!",
+                "At 52, I'm outperforming guys half my age thanks to this!",
+                "I'm 38 and was starting to worry. Now I'm better than ever!",
+                "Being 55, I thought it was just age. This product proved otherwise!",
+                "I'm 45 and this has me performing like I'm 25 again!",
+                "At 62, I thought those days were over. This brought them back better than ever!"
+            ];
+
+            // Colors for user avatars
+            const colors = [
+                "#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33A8",
+                "#33FFF5", "#F5FF33", "#FF8C33", "#8C33FF", "#33FF8C"
+            ];
+
+            // Format number with commas (US style)
+            function formatNumber(num) {
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+
+            // Add a comment to the overlay
+            function addOverlayComment(username, text) {
+                const comment = document.createElement("div");
+                comment.className = "live-comment";
+
+                const initial = username.charAt(0).toUpperCase();
+                const colorIndex = username.length % colors.length;
+
+                comment.innerHTML = `
+                    <div class="comment-avatar" style="background-color: ${colors[colorIndex]}">
+                        ${initial}
+                    </div>
+                    <div class="comment-content">
+                        <span class="comment-author">${username}</span>
+                        <span class="comment-text">${text}</span>
+                    </div>
+                `;
+
+                commentsOverlay.appendChild(comment);
+                
+                // Remove comment after animation completes
+                setTimeout(() => {
+                    comment.remove();
+                }, 5000);
+            }
+
+            // Generate a random comment
+            function generateRandomComment() {
+                const randomUsername = usernames[Math.floor(Math.random() * usernames.length)];
+                const randomComment = productComments[Math.floor(Math.random() * productComments.length)];
+                addOverlayComment(randomUsername, randomComment);
+            }
+
+            // Send a comment when the send button is clicked
+            sendButton.addEventListener("click", () => {
+                const text = commentText.value.trim();
+                if (text) {
+                    addOverlayComment("You", text);
+                    commentText.value = "";
+                }
+            });
+
+            // Send a comment when Enter key is pressed
+            commentText.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    const text = commentText.value.trim();
+                    if (text) {
+                        addOverlayComment("You", text);
+                        commentText.value = "";
+                    }
+                }
+            });
+
+            // Play button functionality
+            playButton.addEventListener("click", () => {
+                videoPlayer.play();
+                // Set playback speed to 1.2x
+                videoPlayer.playbackRate = 1.2;
+                playButton.style.display = "none";
+                videoStartTime = Date.now();
+                startViewerIncrement();
+                checkVideoTime();
+                updateProgressBar();
+                decreaseItemsLeft();
+            });
+
+            // Close promo button
+            closePromo.addEventListener("click", (e) => {
+                e.preventDefault();
+                productPromo.style.display = "none";
+            });
+
+            // Gradually decrease items left
+            function decreaseItemsLeft() {
+                const itemsInterval = setInterval(() => {
+                    if (Math.random() > 0.7) { // 30% chance to decrease
+                        itemsRemaining--;
+                        itemsLeft.textContent = `${itemsRemaining} items remaining`;
+                        
+                        // If items get too low, stop decreasing
+                        if (itemsRemaining <= 10) {
+                            clearInterval(itemsInterval);
+                        }
+                    }
+                }, 5000); // Check every 5 seconds
+            }
+
+            // Gradually increase viewers count
+            let currentViewers = 125;
+            let viewerInterval;
+
+            function startViewerIncrement() {
+                viewerInterval = setInterval(() => {
+                    // Increase by 1-5 viewers each time
+                    const increment = Math.floor(Math.random() * 5) + 1;
+                    currentViewers += increment;
+                    viewersText.textContent = formatNumber(currentViewers) + " people watching now";
+                    
+                    // If video ended, clear interval
+                    if (videoPlayer.ended) {
+                        clearInterval(viewerInterval);
+                    }
+                }, 2000); // Update every 2 seconds
+            }
+
+            // Update progress bar
+            function updateProgressBar() {
+                const progressInterval = setInterval(() => {
+                    if (videoPlayer.duration) {
+                        let progress = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+                        
+                        // Make progress faster at the beginning
+                        if (initialProgressSpeed && videoPlayer.currentTime < videoPlayer.duration * 0.1) {
+                            progress = progress * 1.5; // 50% faster at the beginning
+                            if (progress >= 10) {
+                                initialProgressSpeed = false;
+                            }
+                        }
+                        
+                        // Update progress bar width
+                        progressBar.style.width = progress + "%";
+                        
+                        // Update percentage text
+                        progressPercentage.textContent = Math.round(progress) + "%";
+                    }
+                    
+                    if (videoPlayer.ended) {
+                        progressBar.style.width = "100%";
+                        progressPercentage.textContent = "100%";
+                        clearInterval(progressInterval);
+                    }
+                }, 100);
+            }
+
+            // Check video time to trigger events
+            function checkVideoTime() {
+                const checkInterval = setInterval(() => {
+                    const currentTime = videoPlayer.currentTime;
+                    
+                    // Start comments after 5 minutes (300 seconds)
+                    if (currentTime >= 300 && !commentsStarted) { // Using 300 seconds for 5 minutes
+                        commentsStarted = true;
+                        startComments();
+                    }
+                    
+                    // Show product promo after 10 minutes (600 seconds)
+                    if (currentTime >= 600 && !promoShown) { // Using 600 seconds for 10 minutes
+                        promoShown = true;
+                        productPromo.style.display = "flex";
+                        startCountdown(); // Start the countdown timer
+                    }
+                    
+                    // If video ended, clear interval
+                    if (videoPlayer.ended) {
+                        clearInterval(checkInterval);
+                    }
+                }, 1000); // Check every second
+            }
+
+            // Start comments after delay - with controlled pacing
+            function startComments() {
+                // Function to add 1-3 comments with proper spacing
+                function addBatchOfComments() {
+                    // Randomly decide how many comments to show (1-3)
+                    const commentCount = Math.floor(Math.random() * 3) + 1;
+                    
+                    // Add comments with spacing between them
+                    for (let i = 0; i < commentCount; i++) {
+                        setTimeout(() => {
+                            generateRandomComment();
+                        }, i * 1000); // 1 second between comments in a batch
+                    }
+                }
+
+                // Initial batch of comments
+                addBatchOfComments();
+                
+                // Schedule next batch every 3-4 seconds
+                function scheduleNextBatch() {
+                    // Random delay between 3-4 seconds
+                    const batchDelay = 3000 + Math.floor(Math.random() * 1000);
+                    
+                    setTimeout(() => {
+                        addBatchOfComments();
+                        scheduleNextBatch();
+                    }, batchDelay);
+                }
+                
+                // Start the comment batches
+                scheduleNextBatch();
+            }
+
+            // Handle video end
+            videoPlayer.addEventListener('ended', () => {
+                // Show play button again if video ends
+                playButton.style.display = "flex";
+                clearInterval(viewerInterval);
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+                commentsStarted = false;
+                promoShown = false;
+                productPromo.style.display = "none";
+                initialProgressSpeed = true;
+                itemsRemaining = 145;
+                itemsLeft.textContent = "145 items remaining";
+            });
+            
+            // For testing purposes - uncomment these lines to test with shorter times
+            /*
+            videoPlayer.addEventListener('timeupdate', () => {
+                // This is just for testing - it speeds up the video to reach the time triggers faster
+                if (videoPlayer.duration > 30) { // Only if video is longer than 30 seconds
+                    if (videoPlayer.currentTime < 10 && videoPlayer.currentTime > 5) {
+                        videoPlayer.currentTime = 10; // Jump to comment trigger time (5 min)
+                    } else if (videoPlayer.currentTime < 20 && videoPlayer.currentTime > 15) {
+                        videoPlayer.currentTime = 20; // Jump to promo trigger time (10 min)
+                    }
+                }
+            });
+            */
+        });
+    </script>
+</body>
+</html>
